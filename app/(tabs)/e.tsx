@@ -1,12 +1,12 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import React from "react";
 import {
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    SafeAreaView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export default function App() {
