@@ -1,13 +1,15 @@
-import { MaterialIcons } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import {
   SafeAreaView,
   StyleSheet,
   Text,
-  TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
+
+import Toast from "react-native-toast-message";
+
+import TaskForm from "../../components/TaskForm";
+import TaskItem from "../../components/TaskItem";
 import { supabase } from "../../lib/supabase";
 
 type Task = {
@@ -25,7 +27,7 @@ export default function App() {
     loadTasks();
   }, []);
 
-  const loadTasks = async (): Promise<void> => {
+  const loadTasks = async () => {
     const { data, error } = await supabase
       .from("tasks")
       .select("*")
@@ -33,34 +35,56 @@ export default function App() {
 
     if (error) {
       console.log(error);
+
+      Toast.show({
+        type: "error",
+        text1: "Load Failed",
+        text2: "Unable to load tasks",
+      });
+
       return;
     }
 
     setTasks((data as Task[]) || []);
   };
 
-  const addTask = async (): Promise<void> => {
+  const addTask = async () => {
     if (!task.trim()) return;
+
+    const taskTitle = task.trim();
 
     const { error } = await supabase
       .from("tasks")
       .insert([
         {
-          title: task.trim(),
+          title: taskTitle,
           completed: false,
         },
       ]);
 
     if (error) {
       console.log(error);
+
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to add task",
+      });
+
       return;
     }
 
     setTask("");
     await loadTasks();
+
+    Toast.show({
+      type: "success",
+      text1: "Task Added",
+      text2: taskTitle + " added successfully",
+    });
   };
 
-  const toggleTask = async (item: Task): Promise<void> => {
+  const toggleTask = async (item: Task) => {
     const { error } = await supabase
       .from("tasks")
       .update({
@@ -70,13 +94,30 @@ export default function App() {
 
     if (error) {
       console.log(error);
+
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to update task",
+      });
+
       return;
     }
 
     await loadTasks();
+
+    Toast.show({
+      type: "success",
+      text1: "Task Updated",
+      text2: item.title + " updated successfully",
+    });
   };
 
-  const deleteTask = async (id: string): Promise<void> => {
+  const deleteTask = async (id: string) => {
+    const taskToDelete = tasks.find(
+      (task) => task.id === id
+    );
+
     const { error } = await supabase
       .from("tasks")
       .delete()
@@ -84,83 +125,54 @@ export default function App() {
 
     if (error) {
       console.log(error);
+
+      Toast.show({
+        type: "error",
+        text1: "Error",
+        text2: "Failed to delete task",
+      });
+
       return;
     }
 
     await loadTasks();
+
+    Toast.show({
+      type: "success",
+      text1: "Task Deleted",
+      text2:
+        (taskToDelete?.title || "Task") +
+        " deleted successfully",
+    });
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={headerStyles.headerContainer}>
-        <Text style={headerStyles.headerTitle}>TaskFlow</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>TaskFlow</Text>
       </View>
 
-      <View style={styles.inputRow}>
-        <TextInput
-          placeholder="Enter Task"
-          placeholderTextColor="#888"
-          style={styles.input}
-          value={task}
-          onChangeText={setTask}
-        />
-
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={addTask}
-        >
-          <MaterialIcons
-            name="add"
-            size={24}
-            color="#fff"
-          />
-        </TouchableOpacity>
-      </View>
+      <TaskForm
+        task={task}
+        setTask={setTask}
+        onAdd={addTask}
+      />
 
       <View style={styles.taskContainer}>
-        {tasks.map((item: Task) => (
-          <TouchableOpacity
+        {tasks.map((item) => (
+          <TaskItem
             key={item.id}
-            style={styles.taskRow}
-            onPress={() => toggleTask(item)}
-            onLongPress={() => deleteTask(item.id)}
-          >
-            <MaterialIcons
-              name={
-                item.completed
-                  ? "check-box"
-                  : "check-box-outline-blank"
-              }
-              size={24}
-              color="#555"
-            />
-
-            <Text
-              style={[
-                styles.taskText,
-                item.completed &&
-                  styles.completedText,
-              ]}
-            >
-              {item.title}
-            </Text>
-          </TouchableOpacity>
+            item={item}
+            onToggle={toggleTask}
+            onDelete={deleteTask}
+          />
         ))}
       </View>
+
+      <Toast />
     </SafeAreaView>
   );
 }
-
-const headerStyles = StyleSheet.create({
-  headerContainer: {
-    marginBottom: 25,
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#222",
-  },
-});
 
 const styles = StyleSheet.create({
   container: {
@@ -168,48 +180,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     padding: 20,
   },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "center",
+  header: {
     marginBottom: 25,
   },
-  input: {
-    flex: 1,
-    height: 50,
-    backgroundColor: "#F5F5F5",
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    fontSize: 16,
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
-  },
-  addButton: {
-    width: 50,
-    height: 50,
-    backgroundColor: "#4F46E5",
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
+  title: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: "#222",
   },
   taskContainer: {
     marginTop: 5,
-  },
-  taskRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F9F9F9",
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  taskText: {
-    marginLeft: 12,
-    fontSize: 16,
-    color: "#333",
-  },
-  completedText: {
-    textDecorationLine: "line-through",
-    color: "#888",
   },
 });
