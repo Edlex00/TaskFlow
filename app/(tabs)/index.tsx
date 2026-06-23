@@ -1,5 +1,5 @@
 import { MaterialIcons } from "@expo/vector-icons";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   SafeAreaView,
   StyleSheet,
@@ -8,47 +8,144 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { supabase } from "../../lib/supabase";
+
+type Task = {
+  id: string;
+  title: string;
+  completed: boolean;
+  created_at?: string;
+};
 
 export default function App() {
+  const [task, setTask] = useState<string>("");
+  const [tasks, setTasks] = useState<Task[]>([]);
+
+  useEffect(() => {
+    loadTasks();
+  }, []);
+
+  const loadTasks = async (): Promise<void> => {
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.log(error);
+      return;
+    }
+
+    setTasks((data as Task[]) || []);
+  };
+
+  const addTask = async (): Promise<void> => {
+    if (!task.trim()) return;
+
+    const { error } = await supabase
+      .from("tasks")
+      .insert([
+        {
+          title: task.trim(),
+          completed: false,
+        },
+      ]);
+
+    if (error) {
+      console.log(error);
+      return;
+    }
+
+    setTask("");
+    await loadTasks();
+  };
+
+  const toggleTask = async (item: Task): Promise<void> => {
+    const { error } = await supabase
+      .from("tasks")
+      .update({
+        completed: !item.completed,
+      })
+      .eq("id", item.id);
+
+    if (error) {
+      console.log(error);
+      return;
+    }
+
+    await loadTasks();
+  };
+
+  const deleteTask = async (id: string): Promise<void> => {
+    const { error } = await supabase
+      .from("tasks")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.log(error);
+      return;
+    }
+
+    await loadTasks();
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={headerStyles.headerContainer}>
         <Text style={headerStyles.headerTitle}>TaskFlow</Text>
       </View>
 
-      {/* Input Row */}
       <View style={styles.inputRow}>
         <TextInput
           placeholder="Enter Task"
-          style={styles.input}
           placeholderTextColor="#888"
+          style={styles.input}
+          value={task}
+          onChangeText={setTask}
         />
 
-        <TouchableOpacity style={styles.addButton}>
-          <MaterialIcons name="add" size={24} color="#fff" />
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={addTask}
+        >
+          <MaterialIcons
+            name="add"
+            size={24}
+            color="#fff"
+          />
         </TouchableOpacity>
       </View>
 
-      {/* Static Tasks */}
       <View style={styles.taskContainer}>
-        <View style={styles.taskRow}>
-          <MaterialIcons
-            name="check-box-outline-blank"
-            size={24}
-            color="#555"
-          />
-          <Text style={styles.taskText}>Study React Native</Text>
-        </View>
+        {tasks.map((item: Task) => (
+          <TouchableOpacity
+            key={item.id}
+            style={styles.taskRow}
+            onPress={() => toggleTask(item)}
+            onLongPress={() => deleteTask(item.id)}
+          >
+            <MaterialIcons
+              name={
+                item.completed
+                  ? "check-box"
+                  : "check-box-outline-blank"
+              }
+              size={24}
+              color="#555"
+            />
 
-        <View style={styles.taskRow}>
-          <MaterialIcons
-            name="check-box-outline-blank"
-            size={24}
-            color="#555"
-          />
-          <Text style={styles.taskText}>Finish Assignment</Text>
-        </View>
+            <Text
+              style={[
+                styles.taskText,
+                item.completed &&
+                  styles.completedText,
+              ]}
+            >
+              {item.title}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
     </SafeAreaView>
   );
@@ -110,5 +207,9 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     fontSize: 16,
     color: "#333",
+  },
+  completedText: {
+    textDecorationLine: "line-through",
+    color: "#888",
   },
 });
